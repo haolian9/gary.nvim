@@ -8,10 +8,6 @@
 
 local M = {}
 
----@class gary.ScreenPos
----@field x integer @column; 0-based
----@field y integer @lnum; 0-based
-
 ---@param x0 integer
 ---@param y0 integer
 ---@param x1 integer
@@ -80,7 +76,7 @@ function M.line(a, b)
   local points, result = line(a.x, a.y, b.x, b.y)
   assert(result)
   -- table.remove(points, 1)
-  -- table.remove(points, #points)
+  points[#points] = nil
   return points
 end
 

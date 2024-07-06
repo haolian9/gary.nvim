@@ -2,12 +2,26 @@ local M = {}
 
 local augroups = require("infra.augroups")
 local ctx = require("infra.ctx")
+local highlighter = require("infra.highlighter")
 local logging = require("infra.logging")
 local ni = require("infra.ni")
 
 local bresenham = require("gary.bresenham")
 
 local log = logging.newlogger("trail", "info")
+
+do
+  local hi = highlighter(0)
+  if vim.go.background == "light" then
+    hi("GaryTrail", { bg = 225 })
+  else
+    hi("GaryTrail", { bg = 24 })
+  end
+end
+
+---@class gary.ScreenPos
+---@field x integer @column; 0-based
+---@field y integer @lnum; 0-based
 
 ---@return gary.ScreenPos @x,y; lnum, col on entire screen; 0-based
 local function get_current_screenpos()
@@ -50,6 +64,13 @@ local function get_current_tabwingeos()
   return geos
 end
 
+---@param x integer @absolute
+---@param y integer @absolute
+---@param geo gary.WinGeo
+local function is_screenpos_in_win(x, y, geo) --
+  return x >= geo.x0 and x <= geo.x9 and y >= geo.y0 and y <= geo.y9
+end
+
 local aug ---@type infra.Augroup?
 local last_screenpos ---@type gary.ScreenPos?
 
@@ -76,16 +97,18 @@ local function on_move()
   for _, tuple in ipairs(line) do
     local x, y = unpack(tuple)
     for _, geo in ipairs(wingeos) do
-      --todo: reduce complexity
-      if x >= geo.x0 and x <= geo.x9 and y >= geo.y0 and y <= geo.y9 then
-        local point = { y - geo.y0 + geo.yoff, x - geo.x0 + geo.xoff + 1, 1 }
-        local last = points[#points]
-        if last and last[1] == geo.winid then
-          table.insert(last[2], point)
-        else
-          table.insert(points, { geo.winid, { point } })
-        end
+      --this screenpos could be in: window-status, win-separator, cmdline, tabline, sign-column, number-column, winbar
+      if not is_screenpos_in_win(x, y, geo) then goto continue end
+
+      local point = { y - geo.y0 + geo.yoff, x - geo.x0 + geo.xoff + 1, 1 }
+      local last = points[#points]
+      if last and last[1] == geo.winid then
+        table.insert(last[2], point)
+      else
+        table.insert(points, { geo.winid, { point } })
       end
+
+      ::continue::
     end
   end
   log.debug("points: %s", points)
@@ -94,8 +117,7 @@ local function on_move()
   ---@type [integer,integer][]
   local matids = {}
   for i, point in ipairs(points) do
-    --todo: intensive color for different points
-    local matid = vim.fn.matchaddpos("Search", point[2], nil, -1, { window = point[1] })
+    local matid = vim.fn.matchaddpos("GaryTrail", point[2], nil, -1, { window = point[1] })
     matids[i] = { point[1], matid }
   end
 
@@ -105,23 +127,30 @@ local function on_move()
     end
   end, 175)
 
-  --todo: point of the line could be in: window-status, win-separator, cmdline, tabline,
-  --        sign-column, number-column, winbar
+  --todo: multibyte col
 end
 
 function M.activate()
   if aug ~= nil then return end
 
   aug = augroups.Augroup("gary:trail")
-  aug:repeats("CursorMoved", { callback = on_move })
+  aug:repeats({ "CursorMoved", "WinScrolled" }, { callback = on_move })
 end
 
-function M.deactive()
+function M.deactivate()
   if aug == nil then return end
 
   aug:unlink()
   aug = nil
   last_screenpos = nil
+end
+
+function M.toggle()
+  if aug == nil then
+    M.activate()
+  else
+    M.deactivate()
+  end
 end
 
 return M
