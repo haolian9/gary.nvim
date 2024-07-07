@@ -69,9 +69,13 @@ local function line(x0, y0, x1, y1, callback)
   return points, result
 end
 
+---@class gary.bresenham.Point
+---@field [1] integer @x
+---@field [2] integer @y
+
 ---@param a gary.ScreenPos
 ---@param b gary.ScreenPos
----@return [integer,integer][] @(col,lnum)[]
+---@return gary.bresenham.Point[]
 function M.line(a, b)
   local points, result = line(a.x, a.y, b.x, b.y)
   assert(result)

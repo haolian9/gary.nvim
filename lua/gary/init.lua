@@ -2,22 +2,14 @@ local M = {}
 
 local augroups = require("infra.augroups")
 local ctx = require("infra.ctx")
-local highlighter = require("infra.highlighter")
+local jelly = require("infra.jellyfish")("gary", "debug")
 local logging = require("infra.logging")
 local ni = require("infra.ni")
 
 local bresenham = require("gary.bresenham")
+local paint_simply = require("gary.paint_simply")
 
-local log = logging.newlogger("trail", "info")
-
-do
-  local hi = highlighter(0)
-  if vim.go.background == "light" then
-    hi("GaryTrail", { bg = 225 })
-  else
-    hi("GaryTrail", { bg = 24 })
-  end
-end
+local log = logging.newlogger("gary", "info")
 
 ---@class gary.ScreenPos
 ---@field x integer @column; 0-based
@@ -32,6 +24,11 @@ local function get_current_screenpos()
   return { y = origin[1] + row - 1, x = origin[2] + col - 1 }
 end
 
+---@param a gary.ScreenPos
+---@param b gary.ScreenPos
+---@return number
+local function calc_distance(a, b) return math.sqrt(math.pow(math.abs(a.x - b.x), 2) + math.pow(math.abs(a.y - b.y), 2)) end
+
 ---@class gary.WinGeo
 ---@field winid integer
 ---@field xoff integer
@@ -44,6 +41,8 @@ end
 ---@return gary.WinGeo[]
 local function get_current_tabwingeos()
   local tabid = ni.get_current_tabpage()
+
+  --todo: floatwin?
 
   local geos = {}
   for i, winid in ipairs(ni.tabpage_list_wins(tabid)) do
@@ -64,74 +63,26 @@ local function get_current_tabwingeos()
   return geos
 end
 
----@param x integer @absolute
----@param y integer @absolute
----@param geo gary.WinGeo
-local function is_screenpos_in_win(x, y, geo) --
-  return x >= geo.x0 and x <= geo.x9 and y >= geo.y0 and y <= geo.y9
-end
-
 local aug ---@type infra.Augroup?
-local last_screenpos ---@type gary.ScreenPos?
+local last_screenpos = { x = 0, y = 0 } ---@type gary.ScreenPos
 
 local function on_move()
-  if last_screenpos == nil then
-    last_screenpos = get_current_screenpos()
-    return
-  end
-
   local screenpos = get_current_screenpos()
-  if last_screenpos.y == screenpos.y and last_screenpos.x == screenpos.x then return end
+  if calc_distance(last_screenpos, screenpos) < 5 then return jelly.debug("skipped; distance < 5") end
 
-  ---[(x, y)]
-  ---@type [integer,integer][]
   local line = bresenham.line(last_screenpos, screenpos)
   last_screenpos = screenpos
   log.debug("line: %s", line)
 
-  local wingeos = get_current_tabwingeos()
-
-  ---(winid, [(row,col)])
-  ---@type [integer,integer[]][]
-  local points = {}
-  for _, tuple in ipairs(line) do
-    local x, y = unpack(tuple)
-    for _, geo in ipairs(wingeos) do
-      --this screenpos could be in: window-status, win-separator, cmdline, tabline, sign-column, number-column, winbar
-      if not is_screenpos_in_win(x, y, geo) then goto continue end
-
-      local point = { y - geo.y0 + geo.yoff, x - geo.x0 + geo.xoff + 1, 1 }
-      local last = points[#points]
-      if last and last[1] == geo.winid then
-        table.insert(last[2], point)
-      else
-        table.insert(points, { geo.winid, { point } })
-      end
-
-      ::continue::
-    end
-  end
-  log.debug("points: %s", points)
-
-  ---[(winid,matid)]
-  ---@type [integer,integer][]
-  local matids = {}
-  for i, point in ipairs(points) do
-    local matid = vim.fn.matchaddpos("GaryTrail", point[2], nil, -1, { window = point[1] })
-    matids[i] = { point[1], matid }
-  end
-
-  vim.defer_fn(function()
-    for _, tuple in ipairs(matids) do
-      vim.fn.matchdelete(tuple[2], tuple[1])
-    end
-  end, 175)
+  paint_simply(line, get_current_tabwingeos())
 
   --todo: multibyte col
 end
 
 function M.activate()
   if aug ~= nil then return end
+
+  last_screenpos = get_current_screenpos()
 
   aug = augroups.Augroup("gary:trail")
   aug:repeats({ "CursorMoved", "WinScrolled" }, { callback = on_move })
@@ -142,7 +93,7 @@ function M.deactivate()
 
   aug:unlink()
   aug = nil
-  last_screenpos = nil
+  last_screenpos = { x = 0, y = 0 }
 end
 
 function M.toggle()
