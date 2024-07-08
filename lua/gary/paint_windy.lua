@@ -9,7 +9,7 @@ local prefer = require("infra.prefer")
 local rifts = require("infra.rifts")
 local wincursor = require("infra.wincursor")
 
-local log = logging.newlogger("gary.paint_windy", "debug")
+local log = logging.newlogger("gary.paint_windy", "info")
 local uv = vim.uv
 
 do
@@ -60,10 +60,6 @@ local function decide_consume_spec()
   return { batch_size = 10, interval = 40 }
 end
 
---todo: position queue + consumer
---todo: zz
---todo: long line, ft,;
-
 local bufnr, winid = -1, -1
 local queue = {} ---@type integer[]
 local timer = uv.new_timer()
@@ -72,7 +68,7 @@ local consume_spec = decide_consume_spec()
 do
   bufnr = Ephemeral({ bufhidden = "hide", name = "gary://windy" }, build_lines())
 
-  local aug = augroups.BufAugroup(bufnr, true)
+  local aug = augroups.BufAugroup(bufnr, "gary.paint", true)
   aug:repeats("BufHidden", { callback = function() ni.buf_clear_namespace(bufnr, trail_ns, 0, -1) end })
   ni.create_autocmd("VimResized", {
     group = aug.group,

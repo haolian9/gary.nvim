@@ -7,7 +7,6 @@ local logging = require("infra.logging")
 local ni = require("infra.ni")
 
 local bresenham = require("gary.bresenham")
-local paint_simply = require("gary.paint_simply")
 
 local log = logging.newlogger("gary", "info")
 
@@ -74,7 +73,8 @@ local function on_move()
   last_screenpos = screenpos
   log.debug("line: %s", line)
 
-  paint_simply(line, get_current_tabwingeos())
+  require("gary.paint_simply")(line, get_current_tabwingeos())
+  -- require("gary.paint_windy")(line)
 
   --todo: multibyte col
 end

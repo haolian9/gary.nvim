@@ -1,16 +1,8 @@
-local M = {}
-
-local augroups = require("infra.augroups")
-local ctx = require("infra.ctx")
 local highlighter = require("infra.highlighter")
 local itertools = require("infra.itertools")
-local jelly = require("infra.jellyfish")("gary", "debug")
 local logging = require("infra.logging")
-local ni = require("infra.ni")
 
-local bresenham = require("gary.bresenham")
-
-local log = logging.newlogger("trail", "debug")
+local log = logging.newlogger("gary.paint_colorful", "info")
 
 do
   local hi = highlighter(0)
@@ -23,49 +15,11 @@ do
   hi("GaryViolet", { bg = 129 })
 end
 
----@class gary.ScreenPos
----@field x integer @column; 0-based
----@field y integer @lnum; 0-based
-
----@return gary.ScreenPos
-local function get_current_screenpos()
-  local origin = ni.win_get_position(0)
-  local row = vim.fn.winline()
-  local col = vim.fn.wincol()
-
-  return { y = origin[1] + row - 1, x = origin[2] + col - 1 }
-end
-
----@class gary.WinGeo
----@field winid integer
----@field xoff integer
----@field yoff integer
----@field x0 integer @0-based; absolute; inclusive
----@field y0 integer @0-based; absolute; inclusive
----@field x9 integer @0-based; absolute; inclusive
----@field y9 integer @0-based; absolute; inclusive
-
----@return gary.WinGeo[]
-local function get_current_tabwingeos()
-  local tabid = ni.get_current_tabpage()
-
-  local geos = {}
-  for i, winid in ipairs(ni.tabpage_list_wins(tabid)) do
-    --todo: less vim.fn calls
-    local wi = assert(vim.fn.getwininfo(winid)[1])
-    local xoff = ctx.win(winid, vim.fn.winsaveview).leftcol
-    ---0-based, both side inclusive
-    geos[i] = {
-      winid = winid,
-      xoff = xoff,
-      yoff = wi.topline,
-      x0 = wi.wincol - 1,
-      y0 = wi.winrow - 1,
-      x9 = wi.wincol + wi.width - 1 - 1,
-      y9 = wi.winrow + wi.height - 1 - 1,
-    }
-  end
-  return geos
+---@param x integer @absolute
+---@param y integer @absolute
+---@param geo gary.WinGeo
+local function is_screenpos_in_win(x, y, geo) --
+  return x >= geo.x0 and x <= geo.x9 and y >= geo.y0 and y <= geo.y9
 end
 
 local alloc_colors
@@ -95,43 +49,28 @@ do
   end
 end
 
-local aug ---@type infra.Augroup?
-local last_screenpos ---@type gary.ScreenPos?
-
-local function on_move()
-  if last_screenpos == nil then
-    last_screenpos = get_current_screenpos()
-    return
-  end
-
-  local screenpos = get_current_screenpos()
-  if last_screenpos.y == screenpos.y and last_screenpos.x == screenpos.x then return end
-
-  ---[(x, y)]
-  ---@type [integer,integer][]
-  local line = bresenham.line(last_screenpos, screenpos)
-  last_screenpos = screenpos
-  log.debug("line: %s", line)
-
-  local wingeos = get_current_tabwingeos()
-
+---@param line gary.bresenham.Point[]
+---@param geos gary.WinGeo[]
+return function(line, geos)
   local poses = {}
   do
     ---(winid, [(row,col)])
     ---@type [integer,[integer,integer]][]
     local points = {}
     for x, y in itertools.itern(line) do
-      for _, geo in ipairs(wingeos) do
-        ---todo: multibyte compatible: tab indent, utf8 chars, conceal
+      for _, geo in ipairs(geos) do
+        --this screenpos could be in: window-status, win-separator, cmdline, tabline, sign-column, number-column, winbar
+        if not is_screenpos_in_win(x, y, geo) then goto continue end
+
         local point = { y - geo.y0 + geo.yoff, x - geo.x0 + geo.xoff + 1, 1 }
         table.insert(points, { geo.winid, point })
+
+        ::continue::
       end
     end
-    log.debug("points: %s", points)
 
     ---@type string[]
     local colors = alloc_colors(#points)
-    log.debug("colors: %s", colors)
 
     local last_win, last_color
     for i = 1, #points do
@@ -145,6 +84,7 @@ local function on_move()
       end
     end
   end
+  log.debug("poses: %s", poses)
 
   ---[(winid,matid)]
   ---@type [integer,integer][]
@@ -157,34 +97,8 @@ local function on_move()
 
   vim.defer_fn(function()
     for _, tuple in ipairs(matids) do
-      local winid = tuple[1]
       pcall(vim.fn.matchdelete, tuple[2], tuple[1])
       --todo: not just ignore error
     end
-  end, math.floor((1000 / 60) * 10))
-
-  --todo: point of the line could be in: window-status, win-separator, cmdline, tabline,
-  --        sign-column, number-column, winbar
+  end, 175)
 end
-
-function M.activate()
-  if aug ~= nil then return end
-
-  aug = augroups.Augroup("gary:trail")
-  aug:repeats({ "CursorMoved", "WinScrolled" }, { callback = on_move })
-end
-
-function M.deactivate()
-  if aug == nil then return end
-
-  aug:unlink()
-  aug = nil
-  last_screenpos = nil
-end
-
-function M.toggle()
-  if aug == nil then return M.activate() end
-  M.deactivate()
-end
-
-return M
