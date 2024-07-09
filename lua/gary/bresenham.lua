@@ -80,7 +80,7 @@ function M.line(a, b)
   local points, result = line(a.x, a.y, b.x, b.y)
   assert(result)
   -- table.remove(points, 1)
-  points[#points] = nil
+  -- points[#points] = nil
   return points
 end
 

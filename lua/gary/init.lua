@@ -73,8 +73,7 @@ local function on_move()
   last_screenpos = screenpos
   log.debug("line: %s", line)
 
-  require("gary.paint_simply")(line, get_current_tabwingeos())
-  -- require("gary.paint_windy")(line)
+  require("gary.paint_colorful")(line, get_current_tabwingeos())
 
   --todo: multibyte col
 end
@@ -86,6 +85,12 @@ function M.activate()
 
   aug = augroups.Augroup("gary:trail")
   aug:repeats({ "CursorMoved", "WinScrolled" }, { callback = on_move })
+  aug:repeats("InsertEnter", {
+    callback = function()
+      --no showing trail on InsertLeave, which may trigger CursorMoved
+      last_screenpos = { x = 0, y = 0 }
+    end,
+  })
 end
 
 function M.deactivate()
