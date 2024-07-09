@@ -1,12 +1,18 @@
 show trails while moving cursor, within a window or across windows
 
 ## design choices, limits
+* works when cursor moving within one single window
+* works when cursor moving across windows
 * since nvim_buf_set_extmark doesnt supports per-window-based mark, fn.matchadd* must be used
-* no rainbow trail: i saw weird behavior of fn.matchaddpos across windows, which i'm not willing to dig into.
-* **not yet** should be capable to deal with multi-byte contents: `<tab>`, utf-8
+* no fullscreen floatwin + winblend, because i dont use &termguicolor
+* no massive ephemeral floatwins, no pre-alloc floatwins
+  * it could be expensive, as this plugin runs in a high frequency
+* not capable to deal with multi-byte contents: `<tab>`, utf-8
+  * nvim provides no api to convert an absolute coordinate to winid/col/line
 
 ## status
-* not usable
+* just works, imperfectly
+* yet many untested edge cases: signcolumn, numbercolumn, tabline, window-statusline, window-border, winbar ...
 
 ## prerequisites
 * nvim 0.10.*
