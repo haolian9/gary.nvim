@@ -2,7 +2,7 @@ local highlighter = require("infra.highlighter")
 local itertools = require("infra.itertools")
 local logging = require("infra.logging")
 
-local log = logging.newlogger("gary.paint_simply", "info")
+local log = logging.newlogger("gary.paint_flat", "info")
 
 do
   local hi = highlighter(0)
@@ -13,26 +13,21 @@ do
   end
 end
 
----@param x integer
----@param y integer
+---@param scol integer @1-based
+---@param srow integer @1-based
 ---@return integer? winid
----@returnyinteger? winrow @1-based, the same meaning of line(), not winline()
+---@return integer? winrow @1-based, the same meaning of line(), not winline()
 ---@return integer? wincol @1-based, the same meaning of col(), not wincol
-local function screenpos_to_winpos(x, y)
+local function screenpos_to_winpos(scol, srow)
   ---@diagnostic disable-next-line: redundant-parameter
-  local mpos = vim.fn.getmousepos(y, x)
+  local mpos = vim.fn.getmousepos(srow, scol)
   if mpos.winid == 0 then return end
   return mpos.winid, mpos.line, mpos.column
 end
 
----@class gary.paint_simply.Spot
----@field winid integer
----@field matid integer
-
 ---@param line gary.bresenham.Point[]
 return function(line)
   ---[(winid,[(row,col)])]
-  ---@type [integer,[integer,integer][]][]
   local win_points = {}
   for x, y in itertools.itern(line) do
     local winid, wrow, wcol = screenpos_to_winpos(x + 1, y + 1)
@@ -50,18 +45,18 @@ return function(line)
   end
   log.debug("points: %s", win_points)
 
-  ---@type gary.paint_simply.Spot[]
+  ---[(winid,matid)]
   local spots = {}
   for i, tuple in ipairs(win_points) do
     local winid, points = tuple[1], tuple[2] --luals gets wrong type infer on unpack()
     local matid = vim.fn.matchaddpos("GaryTrail", points, nil, -1, { window = winid })
-    spots[i] = { winid = winid, matid = matid }
+    spots[i] = { winid, matid }
   end
 
   vim.defer_fn(function()
-    for _, spot in ipairs(spots) do
+    for winid, matid in itertools.itern(spots) do
       --ignore errors: winid could be invalid
-      pcall(vim.fn.matchdelete, spot.matid, spot.winid)
+      pcall(vim.fn.matchdelete, matid, winid)
     end
   end, 175)
 end

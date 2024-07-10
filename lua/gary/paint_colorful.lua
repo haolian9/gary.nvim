@@ -15,13 +15,6 @@ do
   hi("GaryViolet", { bg = 129 })
 end
 
----@param x integer @absolute
----@param y integer @absolute
----@param geo gary.WinGeo
-local function is_screenpos_in_win(x, y, geo) --
-  return x >= geo.x0 and x <= geo.x9 and y >= geo.y0 and y <= geo.y9
-end
-
 local alloc_colors
 do
   local spectrum
@@ -49,24 +42,32 @@ do
   end
 end
 
+---@param scol integer @1-based
+---@param srow integer @1-based
+---@return integer? winid
+---@return integer? winrow @1-based, the same meaning of line(), not winline()
+---@return integer? wincol @1-based, the same meaning of col(), not wincol
+local function screenpos_to_winpos(scol, srow)
+  ---@diagnostic disable-next-line: redundant-parameter
+  local mpos = vim.fn.getmousepos(srow, scol)
+  if mpos.winid == 0 then return end
+  return mpos.winid, mpos.line, mpos.column
+end
+
 ---@param line gary.bresenham.Point[]
----@param geos gary.WinGeo[]
-return function(line, geos)
+return function(line)
+  ---[(color,winid,points)]
   local poses = {}
   do
     ---(winid, [(row,col)])
-    ---@type [integer,[integer,integer]][]
     local points = {}
     for x, y in itertools.itern(line) do
-      for _, geo in ipairs(geos) do
-        --this screenpos could be in: window-status, win-separator, cmdline, tabline, sign-column, number-column, winbar
-        if not is_screenpos_in_win(x, y, geo) then goto continue end
+      local winid, wrow, wcol = screenpos_to_winpos(x + 1, y + 1)
+      if not (wrow and wcol) then goto continue end
 
-        local point = { y - geo.y0 + geo.yoff, x - geo.x0 + geo.xoff + 1, 1 }
-        table.insert(points, { geo.winid, point })
+      table.insert(points, { winid, { wrow, wcol } })
 
-        ::continue::
-      end
+      ::continue::
     end
 
     ---@type string[]
@@ -74,31 +75,30 @@ return function(line, geos)
 
     local last_win, last_color
     for i = 1, #points do
-      local point = points[i]
+      local winid, point = unpack(points[i])
       local color = colors[i]
-      if last_win == point[1] and last_color == color then
-        table.insert(poses[#poses][3], point[2])
+      if last_win == winid and last_color == color then
+        table.insert(poses[#poses][3], point)
       else
-        last_win, last_color = point[1], color
-        table.insert(poses, { color, point[1], { point[2] } })
+        last_win, last_color = winid, color
+        table.insert(poses, { color, winid, { point } })
       end
     end
   end
   log.debug("poses: %s", poses)
 
   ---[(winid,matid)]
-  ---@type [integer,integer][]
-  local matids = {}
+  local spots = {}
   for i, tuple in ipairs(poses) do
     local color, winid, points = unpack(tuple)
     local matid = vim.fn.matchaddpos(color, points, nil, -1, { window = winid })
-    matids[i] = { winid, matid }
+    spots[i] = { winid, matid }
   end
 
   vim.defer_fn(function()
-    for _, tuple in ipairs(matids) do
-      pcall(vim.fn.matchdelete, tuple[2], tuple[1])
-      --todo: not just ignore error
+    for winid, matid in itertools.itern(spots) do
+      --ignore errors: winid could be invalid
+      pcall(vim.fn.matchdelete, matid, winid)
     end
   end, 175)
 end
