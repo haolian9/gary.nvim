@@ -73,7 +73,8 @@ local function on_move()
   last_screenpos = screenpos
   log.debug("line: %s", line)
 
-  require("gary.paint_colorful")(line, get_current_tabwingeos())
+  -- require("gary.paint_colorful")(line, get_current_tabwingeos())
+  require("gary.paint_simply2")(line)
 
   --todo: multibyte col
 end
