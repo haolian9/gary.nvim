@@ -10,6 +10,7 @@ show trails while moving cursor, within a window or across windows
 * no fullscreen floatwin + winblend, because i dont use &termguicolor
 * no massive ephemeral floatwins, no pre-alloc floatwins
 * should be ok with multi-bytes strings
+* not supposed to work well with <tab>, which may be 2/4/8-width
 
 ## status
 * just works, imperfectly
