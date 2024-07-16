@@ -46,7 +46,7 @@ function M.activate()
 
   last_screenpos = get_current_screenpos()
 
-  aug = augroups.Augroup("gary:trail")
+  aug = augroups.Augroup("gary://")
   aug:repeats({ "CursorMoved", "WinScrolled" }, { callback = on_move })
   --no showing trail on InsertLeave, i'm not blind!
   aug:repeats("InsertEnter", { callback = function() last_screenpos = get_current_screenpos() end })
