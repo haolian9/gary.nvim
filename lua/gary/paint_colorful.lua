@@ -63,11 +63,9 @@ return function(line)
     local points = {}
     for x, y in itertools.itern(line) do
       local winid, wrow, wcol = screenpos_to_winpos(x + 1, y + 1)
-      if not (wrow and wcol) then goto continue end
-
-      table.insert(points, { winid, { wrow, wcol } })
-
-      ::continue::
+      if wrow and wcol then --
+        table.insert(points, { winid, { wrow, wcol } })
+      end
     end
 
     ---@type string[]

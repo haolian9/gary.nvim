@@ -15,6 +15,7 @@ local log = logging.newlogger("gary", "info")
 
 ---@return gary.ScreenPos
 local function get_current_screenpos()
+  --todo: it works badly in terminal buffers
   local origin = ni.win_get_position(0)
   local row = vim.fn.winline()
   local col = vim.fn.wincol()
