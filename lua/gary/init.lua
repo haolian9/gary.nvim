@@ -10,6 +10,8 @@ local bresenham = require("gary.bresenham")
 
 local log = logging.newlogger("gary", "info")
 
+---@alias gary.Painter fun(line:gary.bresenham.Point[])
+
 ---@class gary.ScreenPos
 ---@field x integer @column; 0-based
 ---@field y integer @lnum; 0-based
@@ -24,23 +26,30 @@ local function get_current_screenpos()
   return { y = origin[1] + row - 1, x = origin[2] + col - 1 }
 end
 
+---@param a gary.ScreenPos
+---@param b gary.ScreenPos
+---@return number
+local function calc_distance(a, b) return math.sqrt(math.pow(math.abs(a.x - b.x), 2) + math.pow(math.abs(a.y - b.y), 2)) end
+
 local DebounceSession
 do
   ---@class gary.DebounceSession
   ---@field debounce infra.Debounce
   ---@field last_screenpos gary.ScreenPos
   ---@field aug infra.Augroup
+  ---@field painter gary.Painter
   local Impl = {}
   Impl.__index = Impl
 
   function Impl:on_move()
     self.debounce:start_soon(function()
       local screenpos = get_current_screenpos()
+      if calc_distance(self.last_screenpos, screenpos) < 5 then return jelly.debug("skipped; distance < 5") end
 
       local line = bresenham.line(self.last_screenpos, screenpos)
       log.debug("line: %s", line)
 
-      require("gary.paint_colorful")(line)
+      self.painter(line)
 
       self.last_screenpos = screenpos
     end)
@@ -63,11 +72,11 @@ do
 
     self.aug:unlink()
     self.debounce:close()
-    self.last_screenpos = { x = 0, y = 0 }
+    self.aug = nil
   end
 
   ---@return gary.DebounceSession
-  function DebounceSession() return setmetatable({}, Impl) end
+  function DebounceSession(painter) return setmetatable({ painter = painter }, Impl) end
 end
 
 local Session
@@ -75,13 +84,9 @@ do
   ---@class gary.Session
   ---@field last_screenpos gary.ScreenPos
   ---@field aug infra.Augroup
+  ---@field painter gary.Painter
   local Impl = {}
   Impl.__index = Impl
-
-  ---@param a gary.ScreenPos
-  ---@param b gary.ScreenPos
-  ---@return number
-  local function calc_distance(a, b) return math.sqrt(math.pow(math.abs(a.x - b.x), 2) + math.pow(math.abs(a.y - b.y), 2)) end
 
   function Impl:on_move()
     local screenpos = get_current_screenpos()
@@ -90,7 +95,7 @@ do
     local line = bresenham.line(self.last_screenpos, screenpos)
     log.debug("line: %s", line)
 
-    require("gary.paint_colorful")(line)
+    self.painter(line)
 
     self.last_screenpos = screenpos
   end
@@ -110,18 +115,26 @@ do
     if self.aug == nil then return end
 
     self.aug:unlink()
-    self.last_screenpos = { x = 0, y = 0 }
+    self.aug = nil
   end
 
   ---@return gary.Session
-  function Session() return setmetatable({}, Impl) end
+  function Session(painter) return setmetatable({ painter = painter }, Impl) end
 end
 
 local session ---@type nil|gary.DebounceSession|gary.Session
 
-function M.activate()
+---@param debounce? boolean @nil=true
+---@param flavor? 'flat'|'colorful'|'fallback' @nil=flat
+function M.activate(debounce, flavor)
+  if debounce == nil then debounce = true end
+  if flavor == nil then flavor = "flat" end
+
   if session then return end
-  session = DebounceSession()
+
+  local painter = require("gary.paint_" .. flavor)
+  local Impl = debounce and DebounceSession or Session
+  session = Impl(painter)
   session:activate()
 end
 
