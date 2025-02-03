@@ -130,7 +130,7 @@ function M.activate(debounce, flavor)
   if debounce == nil then debounce = true end
   if flavor == nil then flavor = "flat" end
 
-  if session then return end
+  M.deactivate()
 
   local painter = require("gary.paint_" .. flavor)
   local Impl = debounce and DebounceSession or Session
@@ -142,14 +142,6 @@ function M.deactivate()
   if session == nil then return end
   session:deactivate()
   session = nil
-end
-
-function M.toggle()
-  if session == nil then
-    M.activate()
-  else
-    M.deactivate()
-  end
 end
 
 return M
