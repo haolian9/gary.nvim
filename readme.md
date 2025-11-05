@@ -2,18 +2,39 @@ show trails while moving cursor, within a window or across windows
 
 
 ## design choices, limits
-* works when cursor moving within one single window
-* works when cursor moving across windows, yet there would be break points
-* since nvim_buf_set_extmark doesnt supports per-window-based mark, fn.matchadd* must be used
-* no fullscreen floatwin + winblend, because i dont use &termguicolor
-* no massive ephemeral floatwins, no pre-alloc floatwins
+* break points can occur in trail
+* works when cursor moving within window or across windows
 * should be ok with multi-bytes strings
-* not supposed to work well with <tab>, which may be 2/4/8-width
+* impl details
+    * since nvim_buf_set_extmark doesnt supports per-window-based mark, fn.matchadd* must be used
+    * no fullscreen floatwin + winblend, because i dont use &termguicolor
+    * no massive ephemeral floatwins, no pre-alloc floatwins
+    * not supposed to work well with <tab>, which may be 2/4/8-width
 
 ## status
 * just works, imperfectly
-* yet many untested edge cases: signcolumn, numbercolumn, tabline, window-statusline, window-border, winbar ...
-* since it requires a patched vim.fn.getmousepos, it's not supposed to be used publicly
+    * many untested edge cases: signcolumn, numbercolumn, tabline, window-statusline, window-border, winbar ...
+* not supposed to be used publicly as it uses [a patched vim.fn.getmousepos](https://github.com/haolian9/neovim/commit/1a67a3247ab56a4464a28c6ddf9a122de8bf4b74)
+* as now, ghostty+shader will be a wiser take.
+
+## usage
+* `require("gary").activate()`
+* and a command interface
+```
+do --:Gary
+  local spell = cmds.Spell("Gary", function(args)
+    local gary = require("gary")
+    if args.op == "deactivate" then
+      gary[args.op]()
+    else
+      gary.activate(true, args.op)
+    end
+  end)
+  local comp = cmds.ArgComp.constant({ "flat", "colorful", "deactivate" })
+  spell:add_arg("op", "string", false, "flat", comp)
+  cmds.cast(spell)
+end
+```
 
 ## credits
 * i shamelessly stole the basis impl from [vim-ranbow-trails](https://github.com/sedm0784/vim-rainbow-trails)
