@@ -5,6 +5,7 @@ local Debounce = require("infra.Debounce")
 local jelly = require("infra.jellyfish")("gary", "info")
 local logging = require("infra.logging")
 local ni = require("infra.ni")
+local wincursor = require("infra.wincursor")
 
 local bresenham = require("gary.bresenham")
 
@@ -18,12 +19,8 @@ local log = logging.newlogger("gary", "info")
 
 ---@return gary.ScreenPos
 local function get_current_screenpos()
-  --todo: it works badly in terminal buffers
-  local origin = ni.win_get_position(0)
-  local row = vim.fn.winline()
-  local col = vim.fn.wincol()
-
-  return { y = origin[1] + row - 1, x = origin[2] + col - 1 }
+  local pos = wincursor.screenpos(ni.get_current_win())
+  return { y = pos.row, x = pos.col }
 end
 
 ---@param a gary.ScreenPos
