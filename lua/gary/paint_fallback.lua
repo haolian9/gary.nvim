@@ -28,11 +28,11 @@ end
 local function get_current_tabwingeos()
   local tabid = ni.get_current_tabpage()
 
-  --todo: floatwin?
+  --concern: floatwin?
 
   local geos = {}
   for i, winid in ipairs(ni.tabpage_list_wins(tabid)) do
-    --todo: less vim.fn calls
+    --concern: less vim.fn calls
     local wi = assert(vim.fn.getwininfo(winid)[1])
     local xoff = ctx.win(winid, vim.fn.winsaveview).leftcol
     ---0-based, both side inclusive
