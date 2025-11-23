@@ -13,9 +13,15 @@ show trails while moving cursor, within a window or across windows
 
 ## status
 * just works, imperfectly
-    * many untested edge cases: signcolumn, numbercolumn, tabline, window-statusline, window-border, winbar ...
+    * many untested corner cases: signcolumn, numbercolumn, tabline, window-statusline, window-border, winbar ...
 * not supposed to be used publicly as it uses [a patched vim.fn.getmousepos](https://github.com/haolian9/neovim/commit/1a67a3247ab56a4464a28c6ddf9a122de8bf4b74)
 * as now, ghostty+shader will be a wiser take.
+
+## prerequisites
+* linux
+* nvim v0.11.*
+* haolian9/infra.nvim
+* nvim with [this patch](https://github.com/haolian9/neovim/commit/1a67a3247ab56a4464a28c6ddf9a122de8bf4b74)
 
 ## usage
 * `require("gary").activate()`
