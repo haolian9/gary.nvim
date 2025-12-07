@@ -19,7 +19,7 @@ local log = logging.newlogger("gary", "info")
 
 ---@return gary.ScreenPos
 local function get_current_screenpos()
-  local pos = wincursor.screenpos(ni.get_current_win())
+  local pos = wincursor.screenpos()
   return { y = pos.row, x = pos.col }
 end
 
