@@ -4,7 +4,7 @@ local augroups = require("infra.augroups")
 local Debounce = require("infra.Debounce")
 local jelly = require("infra.jellyfish")("gary", "info")
 local logging = require("infra.logging")
-local ni = require("infra.ni")
+local oop = require("infra.oop")
 local wincursor = require("infra.wincursor")
 
 local bresenham = require("gary.bresenham")
@@ -72,6 +72,7 @@ do
     self.aug = nil
   end
 
+  ---@param painter gary.Painter
   ---@return gary.DebounceSession
   function DebounceSession(painter) return setmetatable({ painter = painter }, Impl) end
 end
@@ -115,11 +116,18 @@ do
     self.aug = nil
   end
 
+  ---@param painter gary.Painter
   ---@return gary.Session
   function Session(painter) return setmetatable({ painter = painter }, Impl) end
 end
 
 local session ---@type nil|gary.DebounceSession|gary.Session
+
+---@type table<string,gary.Painter>
+local painters = oop.lazyattrs({}, function(flavor)
+  local modname = "gary.paint_" .. flavor
+  return require(modname)
+end)
 
 ---@param debounce? boolean @nil=true
 ---@param flavor? 'flat'|'colorful'|'fallback' @nil=flat
@@ -129,9 +137,8 @@ function M.activate(debounce, flavor)
 
   M.deactivate()
 
-  local painter = require("gary.paint_" .. flavor)
   local Impl = debounce and DebounceSession or Session
-  session = Impl(painter)
+  session = Impl(painters[flavor])
   session:activate()
 end
 
